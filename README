@@ -1,64 +1,67 @@
-This README file contains information on the contents of the
-galileo-dpg layer.
+Digital Pattern Genrator
+========================
 
-Please see the corresponding sections below for details.
-
+This is a layer for Yocto poky which provides a simple digital pattern
+generator (dpgen) for Intel Galileo.
 
 Dependencies
-============
+------------
 
-This layer depends on:
+Aside from all the `poky` stuff, this layers depends on
+`meta-openembedded/meta-oe` which provides `mraa` package. This setup was based
+on `thud` branch.
 
-  URI: git://git.openembedded.org/bitbake
-  branch: master
+Moreover, `meta-intel` is required to provide support for Intel Galileo
+(`intel-quark`). For development only, one can use `qemux86` to speed things up
+in case no dev board is accessible at the moment - Intel Quark is a variant of
+x86 anyway.
 
-  URI: git://git.openembedded.org/openembedded-core
-  layers: meta
-  branch: master
+Prerequisites
+-------------
 
-  URI: git://git.yoctoproject.org/xxxx
-  layers: xxxx
-  branch: master
+The project was build on Ubuntu 18.04 LTS. About 50GB of free space is required
+to store all the necessary build files.
 
+Tutorial
+--------
 
-Patches
-=======
+First step is to clone all the necessary files.
+```
+git clone -b thud git://git.yoctoproject.org/poky && cd poky
+git clone -b thud git://git.openembedded.org/meta-openembedded
+git clone -b thud git://git.openembedded.org/meta-intel
+git clone git@github.com:maciejstanek/meta-dpgen.git
+```
 
-Please submit any patches against the galileo-dpg layer to the
-xxxx mailing list (xxxx@zzzz.org) and cc: the maintainer:
+Next, prepare the build configuration. This include adding all the necessary
+layers and modifying the config file appropriately.
+```
+. oe-init-build-env build
+echo 'MACHINE = "intel-quark"' >> conf/layer.conf
+echo 'REFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"' >> conf/layer.conf
+echo 'COMPATIBLE_MACHINE_intel-quark = "intel-quark"' >> conf/layer.conf
+bitbake-layers add-layer ../meta-openembedded/meta-oe
+bitbake-layers add-layer ../meta-intel
+bitbake-layers add-layer ../meta-dpgen
+bitbake-layers show-layers
+bitbake core-image-rt
+```
 
-Maintainer: XXX YYYYYY <xxx.yyyyyy@zzzzz.com>
+*TODO*: Describe SD card image generation and processing.
 
+Troubleshooting
+---------------
 
-Table of Contents
-=================
+In case something breaks in the build process, there are a options to consider.
+Firstly, one can build it without Intel Quark meta and debug it on `qemu`.
+```
+echo 'MACHINE = "qemux86"' >> conf/layer.conf
+echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/layer.conf
+bitbake-layers remove-layer ../meta-intel
+runqemu qemux86
+```
 
-  I. Adding the galileo-dpg layer to your build
- II. Misc
-
-
-I. Adding the galileo-dpg layer to your build
-=================================================
-
---- replace with specific instructions for the galileo-dpg layer ---
-
-In order to use this layer, you need to make the build system aware of
-it.
-
-Assuming the galileo-dpg layer exists at the top-level of your
-yocto build tree, you can add it to the build system by adding the
-location of the galileo-dpg layer to bblayers.conf, along with any
-other layers needed. e.g.:
-
-  BBLAYERS ?= " \
-    /path/to/yocto/meta \
-    /path/to/yocto/meta-poky \
-    /path/to/yocto/meta-yocto-bsp \
-    /path/to/yocto/meta-galileo-dpg \
-    "
-
-
-II. Misc
-========
-
---- replace with specific information about the galileo-dpg layer ---
+Alternatively, `dpgen` utility can be removed.
+```
+bitbake-layers remove-layer ../meta-dpgen
+```
