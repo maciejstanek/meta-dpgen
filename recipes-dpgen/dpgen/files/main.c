@@ -1,7 +1,13 @@
 #include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include "mraa.h"
 
-int main(int argc, char **argv)
+int
+main(int argc, char** argv)
 {
-    printf("TESTING 123\n");
-    return 0;
+  const char* board_name = mraa_get_platform_name();
+  fprintf(stdout, "hello mraa\n Version: %s\n Running on %s\n", mraa_get_version(), board_name);
+  mraa_deinit();
+  return MRAA_SUCCESS;
 }

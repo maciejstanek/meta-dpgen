@@ -5,10 +5,12 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = "file://main.c"
 
+DEPENDS = "mraa"
+
 S = "${WORKDIR}"
 
 do_compile() {
-	     ${CC} ${LDFLAGS} main.c -o dpgen
+	     ${CC} ${LDFLAGS} main.c -o dpgen -lmraa
 }
 
 do_install() {
