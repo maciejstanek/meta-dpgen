@@ -182,8 +182,17 @@ static void parse_args(int argc, char *argv[], config_t *config)
     }
     config->period = (int)(1.0L/(f/1000000000.0L)); // 10^9
   }
-  if (config->period < (int)(1000000000.0L/230.0L));
-  print_msg(MSG_WARNING, "According to Intel, GPIO max speed is 230 [Hz].");
+  if (config->period < (int)(1000000000.0L/230.0L)) {
+    print_msg(MSG_WARNING, "According to Intel, GPIO max speed is 230 [Hz].");
+  }
+
+  if (config->has_clk_pin) {
+    if (config->clk_pin_number == config->output_pin_number) {
+      print_msg(MSG_ERROR, "Options -o and -s cannot be equal.");
+      print_help(argv[0]);
+      exit(EXIT_FAILURE);
+    }
+  }
 
   if (optind >= argc) {
     print_msg(MSG_ERROR, "Expected argument after options.");
@@ -207,6 +216,22 @@ static void parse_args(int argc, char *argv[], config_t *config)
 
 static mraa_gpio_context clk_pin = NULL;
 static mraa_gpio_context output_pin = NULL;
+static bool clk_pin_value = 0;
+
+static void set_output_pin_value(bool value) {
+  if (mraa_gpio_write(output_pin, value) != MRAA_SUCCESS) {
+    print_msg(MSG_WARNING, "Setting output value failed.");
+  }
+}
+
+static void toggle_clock() {
+  if (config.has_clk_pin) {
+    clk_pin_value = !clk_pin_value;
+    if (mraa_gpio_write(clk_pin, clk_pin_value) != MRAA_SUCCESS) {
+      print_msg(MSG_WARNING, "Toggling synchronization clock failed.");
+    }
+  }
+}
 
 static void initialize_mraa(config_t *config)
 {
@@ -318,9 +343,12 @@ static void log_action(config_t *config, bool value)
 
 static void update_output(struct timespec *ts, config_t *config, int *index)
 {
-  // TODO: Clk synchronization signal.
+  bool do_toggle_clock = (*index == 0); // Do it after writing to output to eliminate jitter.
   bool value = pattern[(*index)++];
-  // TODO: Add GPIO handling: update_gpio()
+  set_output_pin_value(value);
+  if (do_toggle_clock) {
+    toggle_clock();
+  }
   if (config->debug) {
     log_action(config, value);
   }
