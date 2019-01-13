@@ -19,8 +19,9 @@ anyway.
 Prerequisites
 -------------
 
-The project was build on Ubuntu 18.04 LTS. About 50GB of free space is required
-to store all the necessary build files.
+The project was build on Ubuntu 18.04 LTS. About 40GB of free space is required
+to store all the necessary build files. Build speed is heavily influenced by
+the number of cores, so the more powerful CPU the better.
 
 Tutorial
 --------
@@ -52,18 +53,20 @@ bitbake core-image-rt
 Troubleshooting
 ---------------
 
-In case something breaks in the build process, there are a options to consider.
-Firstly, one can build it without Intel Quark meta and debug it on `qemu`.
+In case something breaks in the build process, there are a few options to consider.
+Firstly, one can build it without Intel Quark meta and debug it with an emulator.
 ```
 echo 'MACHINE = "qemux86"' >> conf/layer.conf
 echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/layer.conf
 bitbake-layers remove-layer ../meta-intel
+bitbake core-image-rt
 runqemu qemux86
 ```
 
 Alternatively, `dpgen` utility can be removed.
 ```
 bitbake-layers remove-layer ../meta-dpgen
+bitbake core-image-rt
 ```
 
 [1]: https://en.wikipedia.org/wiki/Intel_Quark
