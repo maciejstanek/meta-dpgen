@@ -70,8 +70,7 @@ static int load_pattern(const char *file_name) {
   }
   if (fclose(f)) {
     snprintf(msg_buf, MSG_BUF_MAX, "Could not close file '%s' after reading.", file_name);
-    print_msg(MSG_ERROR, msg_buf);
-    return EXIT_FAILURE;
+    print_msg(MSG_WARNING, msg_buf);
   }
   return EXIT_SUCCESS;
 }
@@ -104,9 +103,11 @@ static void print_help(char *argv0) {
   fprintf(stderr, "  -r               Repeat pattern indefinitely. In case\n");
   fprintf(stderr, "                   it is not present, the pattern is sent\n");
   fprintf(stderr, "                   only once.\n");
+  fprintf(stderr, "  -o <pin number>  Output pin number. Defaults to 2.\n");
+  fprintf(stderr, "  -s <pin number>  Synchronization clock pin number. Disabled\n");
+  fprintf(stderr, "                   if option not provided.\n");
   fprintf(stderr, "  -d               Print debug information.\n");
   fprintf(stderr, "  -h               Print this help message.\n");
-  // TODO: Output pin selection?
   fprintf(stderr, "\n");
   fprintf(stderr, "The pattern FILE contains a sequence of ones and zeros.\n");
   fprintf(stderr, "All other characters are ignored. Example pattern FILE(s)\n");
@@ -116,25 +117,39 @@ static void print_help(char *argv0) {
 typedef struct config_t {
   bool repeat;
   bool debug;
+  int clk_pin_number;
+  bool has_clk_pin;
+  int output_pin_number;
   char *file_name;
   int period; // [ns]
 } config_t;
+
+static config_t config;
 
 static void parse_args(int argc, char *argv[], config_t *config)
 {
   config->period = 1000000000; // 10^9 [ns] = 1 [s]
   config->repeat = false;
   config->debug = false;
-  bool has_f = false, has_t = false;
+  config->has_clk_pin = false;
+  config->output_pin_number = 2; // Arduino D2
+  bool has_f = false, has_t = false, has_s = false;
   long double f;
   int opt;
-  while ((opt = getopt(argc, argv, "hdrf:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "hdrf:t:o:s:")) != -1) {
     switch (opt) {
     case 'r':
       config->repeat = true;
       break;
     case 'd':
       config->debug = true;
+      break;
+    case 'o':
+      config->output_pin_number = atoi(optarg);
+      break;
+    case 's':
+      config->has_clk_pin = true;
+      config->clk_pin_number = atoi(optarg);
       break;
     case 't':
       has_t = true;
@@ -143,7 +158,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
     case 'f':
       has_f = true;
       f = atof(optarg);
-      printf("DBG: %llf\n", f);
+      printf("DBG: %Lf\n", f);
       break;
     case 'h':
       print_help(argv[0]);
@@ -167,6 +182,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
     }
     config->period = (int)(1.0L/(f/1000000000.0L)); // 10^9
   }
+  if (config->period < (int)(1000000000.0L/230.0L));
   print_msg(MSG_WARNING, "According to Intel, GPIO max speed is 230 [Hz].");
 
   if (optind >= argc) {
@@ -189,18 +205,41 @@ static void parse_args(int argc, char *argv[], config_t *config)
 
 // GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
 
-static void initialize_mraa(void)
+static mraa_gpio_context clk_pin = NULL;
+static mraa_gpio_context output_pin = NULL;
+
+static void initialize_mraa(config_t *config)
 {
   snprintf(msg_buf, MSG_BUF_MAX, "Using 'mraa' %s (%s detected).",
     mraa_get_version(), mraa_get_platform_name());
   print_msg(MSG_INFO, msg_buf);
   mraa_init();
-  // TODO: add pins
+  if (!(output_pin = mraa_gpio_init(config->output_pin_number))) {
+    print_msg(MSG_WARNING, "Initializing output pin failed.");
+  }
+  else if (mraa_gpio_dir(output_pin, MRAA_GPIO_OUT) != MRAA_SUCCESS) {
+    print_msg(MSG_WARNING, "Forcing output pin direction failed.");
+  }
+  if (config->has_clk_pin) {
+    if (!(clk_pin = mraa_gpio_init(config->clk_pin_number))) {
+      print_msg(MSG_WARNING, "Initializing synchronization clock pin failed.");
+    }
+    else if (mraa_gpio_dir(clk_pin, MRAA_GPIO_OUT) != MRAA_SUCCESS) {
+      print_msg(MSG_WARNING, "Forcing synchronization clock pin direction failed.");
+    }
+  }
 }
 
-static void cleanup_mraa(void)
+static void cleanup_mraa()
 {
-  // TODO: add pins
+  if (mraa_gpio_close(output_pin) != MRAA_SUCCESS) {
+    print_msg(MSG_WARNING, "Closing output pin failed.");
+  }
+  if (config.has_clk_pin) {
+    if (mraa_gpio_close(clk_pin) != MRAA_SUCCESS) {
+      print_msg(MSG_WARNING, "Closing synchronization clock pin failed.");
+    }
+  }
   mraa_deinit();
 }
 
@@ -242,7 +281,7 @@ static void initialize(int argc, char *argv[], struct timespec *ts, config_t *co
   if (config->debug) {
     print_pattern(30);
   }
-  initialize_mraa();
+  initialize_mraa(config);
   clock_gettime(CLOCK_MONOTONIC, ts);
 }
 
@@ -314,7 +353,6 @@ int
 main(int argc, char *argv[])
 {
   struct timespec ts;
-  config_t config;
 
   initialize(argc, argv, &ts, &config);
   loop(&ts, &config);
