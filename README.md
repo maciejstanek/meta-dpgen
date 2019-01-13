@@ -11,7 +11,7 @@ Dependencies
 
 Aside from all the `poky` stuff, this layers depends on
 `meta-openembedded/meta-oe` which provides `mraa` package. This setup was based
-on `thud` branch.
+on `rocko` branch.
 
 Moreover, `meta-intel` layer is required to provide a support for Intel Galileo
 (`intel-quark`). For development only, one can use `qemux86` to speed things up
@@ -30,9 +30,9 @@ Tutorial
 
 First step is to clone all the necessary files.
 ```
-git clone -b thud git://git.yoctoproject.org/poky && cd poky
-git clone -b thud git://git.openembedded.org/meta-openembedded
-git clone -b thud git://git.openembedded.org/meta-intel
+git clone -b rocko git://git.yoctoproject.org/poky && cd poky
+git clone -b rocko git://git.openembedded.org/meta-openembedded
+git clone -b rocko git://git.openembedded.org/meta-intel
 git clone git@github.com:maciejstanek/meta-dpgen.git
 ```
 
@@ -41,7 +41,7 @@ layers and modifying a config file appropriately.
 ```
 . oe-init-build-env build
 echo 'MACHINE = "intel-quark"' >> conf/layer.conf
-echo 'REFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"' >> conf/layer.conf
+echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-intel-rt"' >> conf/layer.conf
 echo 'COMPATIBLE_MACHINE_intel-quark = "intel-quark"' >> conf/layer.conf
 bitbake-layers add-layer ../meta-openembedded/meta-oe
 bitbake-layers add-layer ../meta-intel
