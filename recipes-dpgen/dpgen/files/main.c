@@ -125,7 +125,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
   config->repeat = false;
   config->debug = false;
   bool has_f = false, has_t = false;
-  double f;
+  long double f;
   int opt;
   while ((opt = getopt(argc, argv, "hdrf:t:")) != -1) {
     switch (opt) {
@@ -142,6 +142,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
     case 'f':
       has_f = true;
       f = atof(optarg);
+      printf("DBG: %llf\n", f);
       break;
     case 'h':
       print_help(argv[0]);
@@ -163,7 +164,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
       print_help(argv[0]);
       exit(EXIT_FAILURE);
     }
-    config->period = (int)(1/(f/1000000000)); // 10^9
+    config->period = (int)(1.0L/(f/1000000000.0L)); // 10^9
   }
 
   if (optind >= argc) {
@@ -192,6 +193,7 @@ static void initialize_mraa(void)
     mraa_get_version(), mraa_get_platform_name());
   print_msg(MSG_INFO, msg_buf);
   mraa_init();
+  // TODO: add pins
 }
 
 static void configure_real_time(void)
@@ -209,18 +211,22 @@ static void configure_real_time(void)
   }
 }
 
-static void finalize(int _ignored)
+static void finalize()
 {
-  printf("\n"); // Add a new line so that "^C" is in a separate line.
-  print_msg(MSG_INFO, "Finalizing.");
+  print_msg(MSG_INFO, "Exiting.");
   mraa_deinit();
   exit(EXIT_SUCCESS);
 }
 
+static void sigint_response(int _ignored)
+{
+  printf("\n"); // Add a new line so that "^C" is in a separate line.
+  finalize();
+}
 
 static void initialize(int argc, char *argv[], struct timespec *ts, config_t *config)
 {
-  signal(SIGINT, finalize);
+  signal(SIGINT, sigint_response);
   parse_args(argc, argv, config);
   if (load_pattern(config->file_name)) {
     exit(EXIT_FAILURE);
@@ -228,7 +234,6 @@ static void initialize(int argc, char *argv[], struct timespec *ts, config_t *co
   if (config->debug) {
     print_pattern(30);
   }
-  // TODO
   initialize_mraa();
   clock_gettime(CLOCK_MONOTONIC, ts);
 }
@@ -243,7 +248,7 @@ static void sleep_until(struct timespec *ts, int delay)
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ts, NULL);
 }
 
-#define MINIMAL_PERIOD_FOR_LOGGING 1000000
+#define MINIMAL_PERIOD_FOR_LOGGING 50000000 // 50 [ms]
 bool printed_minimal_period_warning = false;
 
 static void log_action(config_t *config, bool value)
@@ -253,32 +258,35 @@ static void log_action(config_t *config, bool value)
     clock_gettime(CLOCK_MONOTONIC, &ts);
     snprintf(msg_buf, MSG_BUF_MAX, "%d.%09d -> %d", (int)ts.tv_sec,
       (int)ts.tv_nsec, value);
-    print_msg(MSG_INFO, msg_buf);
+    print_msg(MSG_DEBUG, msg_buf);
   }
   else {
     if (!printed_minimal_period_warning) {
-      print_msg(MSG_WARNING, "The requested frequency is too high to enable"
-        " actions logging.");
+      print_msg(MSG_DEBUG, "The requested frequency is too high to enable"
+        " actions logging. It can be 20 [Hz] max.");
       printed_minimal_period_warning = true;
     }
   }
 }
 
-static void update_output(struct timespe *ts, config_t *config, int *index)
+static void update_output(struct timespec *ts, config_t *config, int *index)
 {
+  // TODO: Clk synchronization signal.
   bool value = pattern[(*index)++];
-  printf("DBG: %d\n", *index);
   // TODO: Add GPIO handling: update_gpio()
-  log_action(config, value);
+  if (config->debug) {
+    log_action(config, value);
+  }
   sleep_until(ts, config->period);
-  if (*index >= PATTERN_MAX) {
-    printf("DBG: limit\n");
+  if (*index >= pattern_len) {
     if (config->repeat) {
-      printf("DBG: zero\n");
       *index = 0;
+      if (config->debug && config->period >= MINIMAL_PERIOD_FOR_LOGGING) {
+        print_msg(MSG_DEBUG, "Repeating pattern.");
+      }
     }
     else {
-      finalize(0);
+      finalize();
     }
   }
 }
