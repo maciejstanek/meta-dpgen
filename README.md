@@ -4,6 +4,8 @@ Digital Pattern Generator
 This is a layer for Yocto Project which provides a simple digital pattern
 generator (`dpgen`) for Intel Galileo.
 
+![Intel Galileo](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/IntelGalileoGen2.png/320px-IntelGalileoGen2.png)
+
 Dependencies
 ------------
 
