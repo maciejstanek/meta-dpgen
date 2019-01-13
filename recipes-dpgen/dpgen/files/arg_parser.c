@@ -36,6 +36,7 @@ void parse_args(int argc, char *argv[], config_t *config)
   config->debug = false;
   config->has_clk_pin = false;
   config->output_pin_number = 2; // Arduino D2
+  config->output_pin_number = -1;
   bool has_f = false, has_t = false, has_s = false;
   long double f;
   int opt;
@@ -61,7 +62,6 @@ void parse_args(int argc, char *argv[], config_t *config)
     case 'f':
       has_f = true;
       f = atof(optarg);
-      printf("DBG: %Lf\n", f);
       break;
     case 'h':
       print_help(argv[0]);
@@ -111,6 +111,12 @@ void parse_args(int argc, char *argv[], config_t *config)
     snprintf(msg_buf, MSG_BUF_MAX, "  * period: %d [ns]", config->period);
     print_msg(MSG_DEBUG, msg_buf);
     snprintf(msg_buf, MSG_BUF_MAX, "  * file name: %s", config->file_name);
+    print_msg(MSG_DEBUG, msg_buf);
+    snprintf(msg_buf, MSG_BUF_MAX, "  * output pin: %d", config->output_pin_number);
+    print_msg(MSG_DEBUG, msg_buf);
+    char clk_text_buf[20];
+    snprintf(clk_text_buf, 20, "%d", config->clk_pin_number);
+    snprintf(msg_buf, MSG_BUF_MAX, "  * clock pin: %s", config->has_clk_pin ? clk_text_buf : "disabled" );
     print_msg(MSG_DEBUG, msg_buf);
   }
 }

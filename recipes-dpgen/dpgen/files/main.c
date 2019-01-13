@@ -46,17 +46,17 @@ static void sigint_response(int _ignored)
   finalize(EXIT_SUCCESS);
 }
 
-static void initialize(int argc, char *argv[], struct timespec *ts, config_t *config)
+static void initialize(int argc, char *argv[], struct timespec *ts)
 {
   signal(SIGINT, sigint_response);
-  parse_args(argc, argv, config);
-  if (load_pattern(config->file_name)) {
+  parse_args(argc, argv, &config);
+  if (load_pattern(config.file_name)) {
     exit(EXIT_FAILURE);
   }
-  if (config->debug) {
+  if (config.debug) {
     print_pattern(30);
   }
-  initialize_mraa(config);
+  initialize_mraa(&config);
   clock_gettime(CLOCK_MONOTONIC, ts);
 }
 
@@ -73,9 +73,9 @@ static void sleep_until(struct timespec *ts, int delay)
 #define MINIMAL_PERIOD_FOR_LOGGING 100000000 // 100 [ms]
 bool printed_minimal_period_warning = false;
 
-static void log_action(config_t *config, bool value)
+static void log_action(bool value)
 {
-  if (config->period >= MINIMAL_PERIOD_FOR_LOGGING) {
+  if (config.period >= MINIMAL_PERIOD_FOR_LOGGING) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     snprintf(msg_buf, MSG_BUF_MAX, "%d.%09d -> %d", (int)ts.tv_sec,
@@ -91,7 +91,7 @@ static void log_action(config_t *config, bool value)
   }
 }
 
-static void update_output(struct timespec *ts, config_t *config, int *index)
+static void update_output(struct timespec *ts, int *index)
 {
   bool do_toggle_clock = (*index == 0); // Do it after writing to output to eliminate jitter.
   bool value = get_pattern_at((*index)++);
@@ -99,14 +99,14 @@ static void update_output(struct timespec *ts, config_t *config, int *index)
   if (do_toggle_clock) {
     toggle_clock();
   }
-  if (config->debug) {
-    log_action(config, value);
+  if (config.debug) {
+    log_action(value);
   }
-  sleep_until(ts, config->period);
+  sleep_until(ts, config.period);
   if (*index >= get_pattern_len()) {
-    if (config->repeat) {
+    if (config.repeat) {
       *index = 0;
-      if (config->debug && config->period >= MINIMAL_PERIOD_FOR_LOGGING) {
+      if (config.debug && config.period >= MINIMAL_PERIOD_FOR_LOGGING) {
         print_msg(MSG_DEBUG, "Repeating pattern.");
       }
     }
@@ -116,22 +116,20 @@ static void update_output(struct timespec *ts, config_t *config, int *index)
   }
 }
 
-static void loop(struct timespec *ts, config_t *config)
+static void loop(struct timespec *ts)
 {
   print_msg(MSG_INFO, "Press Ctrl-C to exit.");
   int pattern_index = 0;
   for (;;) {
-    update_output(ts, config, &pattern_index);
+    update_output(ts, &pattern_index);
   }
 }
-
-// MAIN ROUTINE ///////////////////////////////////////////////////////////////
 
 int
 main(int argc, char *argv[])
 {
   struct timespec ts;
 
-  initialize(argc, argv, &ts, &config);
-  loop(&ts, &config);
+  initialize(argc, argv, &ts);
+  loop(&ts);
 }
