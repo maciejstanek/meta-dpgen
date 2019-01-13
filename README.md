@@ -48,7 +48,7 @@ bitbake-layers show-layers
 bitbake core-image-rt
 ```
 
-*TODO*: Describe SD card image generation and processing.
+**TODO**: Describe SD card image generation and processing.
 
 Troubleshooting
 ---------------
@@ -68,5 +68,13 @@ Alternatively, `dpgen` utility can be removed.
 bitbake-layers remove-layer ../meta-dpgen
 bitbake core-image-rt
 ```
+
+The recommended development enviroment consists of two TTYs. The first one is used for building and emulating.
+```
+. oe-init-build-env build
+bitbake dpgen && bitbake core-image-rt && runqemu qemux86
+```
+
+The second one is used for developing the `C` app.
 
 [1]: https://en.wikipedia.org/wiki/Intel_Quark
