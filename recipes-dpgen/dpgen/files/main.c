@@ -10,84 +10,11 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <stdbool.h>
+
 #include "mraa.h"
 #include "mraa/gpio.h"
-
-// MESSAGE PRINTER ////////////////////////////////////////////////////////////
-
-#define MSG_BUF_MAX 1000
-static char msg_buf[MSG_BUF_MAX];
-static const char* msg_type_text[4] = {"INFO", "WARNING", "ERROR", "DEBUG"};
-static int msg_type_base_color[4] = {2, 3, 1, 5};
-
-typedef enum {
-  MSG_INFO = 0,
-  MSG_WARNING = 1,
-  MSG_ERROR = 2,
-  MSG_DEBUG = 3,
-} msg_type;
-
-static void print_msg(msg_type type, char *msg)
-{
-  msg_buf[MSG_BUF_MAX] = '\0'; // Ensure the last char is null.
-  fprintf(stderr, "\033[1;3%dm[%7s]\033[0m %s\n", msg_type_base_color[type],
-    msg_type_text[type], msg);
-}
-
-// PATTERN LOADER /////////////////////////////////////////////////////////////
-
-#define PATTERN_MAX 2000
-#define LINE_MAX 200
-static bool pattern[PATTERN_MAX];
-static int pattern_len = 0;
-
-static int load_pattern(const char *file_name) {
-  FILE *f = fopen(file_name, "r");
-  if (!f) {
-    snprintf(msg_buf, MSG_BUF_MAX, "Could not open '%s' for reading.", file_name);
-    print_msg(MSG_ERROR, msg_buf);
-    return EXIT_FAILURE;
-  }
-  char line[LINE_MAX];
-  char line_count = 0;
-  while (fgets(line, sizeof line, f)) {
-    if (line[0] == '#') {
-      continue; // Skip comments
-    }
-    char c;
-    int ci = 0;
-    while (c = line[ci++]) { // While not null at the end
-      if (c == '0' || c == '1') {
-        pattern[pattern_len++] = c - '0';
-      }
-    }
-    line_count++;
-  }
-  if (!feof(f)) {
-    snprintf(msg_buf, MSG_BUF_MAX, "Reading '%s' failed at line %d.", file_name, line_count);
-    print_msg(MSG_ERROR, msg_buf);
-    return EXIT_FAILURE;
-  }
-  if (fclose(f)) {
-    snprintf(msg_buf, MSG_BUF_MAX, "Could not close file '%s' after reading.", file_name);
-    print_msg(MSG_WARNING, msg_buf);
-  }
-  return EXIT_SUCCESS;
-}
-
-static void print_pattern(int chars_per_line) {
-  int msg_buf_offset = 0;
-  for (int i = 0; i < pattern_len; i++) {
-    msg_buf_offset += sprintf(msg_buf + msg_buf_offset, "%d ", pattern[i]);
-    if (i % chars_per_line == chars_per_line - 1) {
-      msg_buf_offset = 0;
-      print_msg(MSG_DEBUG, msg_buf);
-    }
-  }
-  if (msg_buf > 0) {
-    print_msg(MSG_DEBUG, msg_buf);
-  }
-}
+#include "printer.h"
+#include "pattern.h"
 
 // ARGUMENTS PARSING //////////////////////////////////////////////////////////
 
@@ -212,7 +139,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
   }
 }
 
-// GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
+// OUTPUT CONTROL /////////////////////////////////////////////////////////////
 
 static mraa_gpio_context clk_pin = NULL;
 static mraa_gpio_context output_pin = NULL;
@@ -267,6 +194,8 @@ static void cleanup_mraa()
   }
   mraa_deinit();
 }
+
+// GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
 
 static void configure_real_time(void)
 {
@@ -344,7 +273,7 @@ static void log_action(config_t *config, bool value)
 static void update_output(struct timespec *ts, config_t *config, int *index)
 {
   bool do_toggle_clock = (*index == 0); // Do it after writing to output to eliminate jitter.
-  bool value = pattern[(*index)++];
+  bool value = get_pattern_at((*index)++);
   set_output_pin_value(value);
   if (do_toggle_clock) {
     toggle_clock();
@@ -353,7 +282,7 @@ static void update_output(struct timespec *ts, config_t *config, int *index)
     log_action(config, value);
   }
   sleep_until(ts, config->period);
-  if (*index >= pattern_len) {
+  if (*index >= get_pattern_len()) {
     if (config->repeat) {
       *index = 0;
       if (config->debug && config->period >= MINIMAL_PERIOD_FOR_LOGGING) {

@@ -5,6 +5,10 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = " \
   file://main.c \
+  file://printer.h \
+  file://printer.c \
+  file://pattern.h \
+  file://pattern.c \
   file://pattern/arecibo \
   file://pattern/barker13 \
   file://pattern/pi \
@@ -16,7 +20,9 @@ DEPENDS = "mraa"
 S = "${WORKDIR}"
 
 do_compile() {
-  ${CC} ${LDFLAGS} main.c -o dpgen -lmraa
+  ${CC} ${LDFLAGS} -c printer.c
+  ${CC} ${LDFLAGS} -c pattern.c
+  ${CC} ${LDFLAGS} printer.o pattern.o main.c -o dpgen -lmraa
 }
 
 do_install() {
