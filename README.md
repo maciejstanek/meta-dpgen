@@ -77,6 +77,6 @@ The recommended development enviroment consists of two TTYs. The first one is us
 bitbake dpgen && bitbake core-image-rt && runqemu qemux86
 ```
 
-The second one is used for developing the `C` app.
+The second one is used for developing the *C* app.
 
 [1]: https://en.wikipedia.org/wiki/Intel_Quark
