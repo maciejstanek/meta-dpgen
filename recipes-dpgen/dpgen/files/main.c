@@ -89,30 +89,7 @@ static void print_pattern(int chars_per_line) {
   }
 }
 
-// GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
-
-static void initialize_mraa(void)
-{
-  snprintf(msg_buf, MSG_BUF_MAX, "Using 'mraa' %s (%s detected).",
-    mraa_get_version(), mraa_get_platform_name());
-  print_msg(MSG_INFO, msg_buf);
-  mraa_init();
-}
-
-static void configure_real_time(void)
-{
-  // Lock memory to ensure no swapping is done.
-  if (mlockall(MCL_FUTURE | MCL_CURRENT)) {
-    print_msg(MSG_WARNING, "Failed to lock memory.");
-  }
-
-  // Set our thread to real time priority
-  struct sched_param sp;
-  sp.sched_priority = 30;
-  if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp)) {
-    print_msg(MSG_WARNING, "Failed to enable real-time priority.");
-  }
-}
+// ARGUMENTS PARSING //////////////////////////////////////////////////////////
 
 static void print_help(char *argv0) {
   fprintf(stderr, "Usage: %s [OPTION...] FILE\n", argv0);
@@ -207,11 +184,35 @@ static void parse_args(int argc, char *argv[], config_t *config)
   }
 }
 
+// GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
+
+static void initialize_mraa(void)
+{
+  snprintf(msg_buf, MSG_BUF_MAX, "Using 'mraa' %s (%s detected).",
+    mraa_get_version(), mraa_get_platform_name());
+  print_msg(MSG_INFO, msg_buf);
+  mraa_init();
+}
+
+static void configure_real_time(void)
+{
+  // Lock memory to ensure no swapping is done.
+  if (mlockall(MCL_FUTURE | MCL_CURRENT)) {
+    print_msg(MSG_WARNING, "Failed to lock memory.");
+  }
+
+  // Set our thread to real time priority
+  struct sched_param sp;
+  sp.sched_priority = 30;
+  if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp)) {
+    print_msg(MSG_WARNING, "Failed to enable real-time priority.");
+  }
+}
+
 static void finalize(int _ignored)
 {
   printf("\n"); // Add a new line so that "^C" is in a separate line.
   print_msg(MSG_INFO, "Finalizing.");
-  // TODO: free any allocated memory (patterns?)
   mraa_deinit();
   exit(EXIT_SUCCESS);
 }
@@ -242,19 +243,52 @@ static void sleep_until(struct timespec *ts, int delay)
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ts, NULL);
 }
 
-static void logtimestamp(void)
+#define MINIMAL_PERIOD_FOR_LOGGING 1000000
+bool printed_minimal_period_warning = false;
+
+static void log_action(config_t *config, bool value)
 {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  printf("%d.%09d\n", (int)ts.tv_sec, (int)ts.tv_nsec);
+  if (config->period >= MINIMAL_PERIOD_FOR_LOGGING) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    snprintf(msg_buf, MSG_BUF_MAX, "%d.%09d -> %d", (int)ts.tv_sec,
+      (int)ts.tv_nsec, value);
+    print_msg(MSG_INFO, msg_buf);
+  }
+  else {
+    if (!printed_minimal_period_warning) {
+      print_msg(MSG_WARNING, "The requested frequency is too high to enable"
+        " actions logging.");
+      printed_minimal_period_warning = true;
+    }
+  }
+}
+
+static void update_output(struct timespe *ts, config_t *config, int *index)
+{
+  bool value = pattern[(*index)++];
+  printf("DBG: %d\n", *index);
+  // TODO: Add GPIO handling: update_gpio()
+  log_action(config, value);
+  sleep_until(ts, config->period);
+  if (*index >= PATTERN_MAX) {
+    printf("DBG: limit\n");
+    if (config->repeat) {
+      printf("DBG: zero\n");
+      *index = 0;
+    }
+    else {
+      finalize(0);
+    }
+  }
 }
 
 static void loop(struct timespec *ts, config_t *config)
 {
   print_msg(MSG_INFO, "Press Ctrl-C to exit.");
+  int pattern_index = 0;
   for (;;) {
-    sleep_until(ts, config->period);
-    /* logtimestamp(); */
+    update_output(ts, config, &pattern_index);
   }
 }
 
