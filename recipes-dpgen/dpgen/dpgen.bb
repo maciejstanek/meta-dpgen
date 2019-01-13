@@ -9,6 +9,8 @@ SRC_URI = " \
   file://printer.c \
   file://pattern.h \
   file://pattern.c \
+  file://arg_parser.h \
+  file://arg_parser.c \
   file://pattern/arecibo \
   file://pattern/barker13 \
   file://pattern/pi \
@@ -19,10 +21,12 @@ DEPENDS = "mraa"
 
 S = "${WORKDIR}"
 
+# TODO: Consider adding a Makefile
 do_compile() {
+  ${CC} ${LDFLAGS} -c arg_parser.c
   ${CC} ${LDFLAGS} -c printer.c
   ${CC} ${LDFLAGS} -c pattern.c
-  ${CC} ${LDFLAGS} printer.o pattern.o main.c -o dpgen -lmraa
+  ${CC} ${LDFLAGS} arg_parser.o printer.o pattern.o main.c -o dpgen -lmraa
 }
 
 do_install() {
