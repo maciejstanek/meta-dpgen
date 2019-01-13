@@ -14,28 +14,86 @@
 
 // MESSAGE PRINTER ////////////////////////////////////////////////////////////
 
-#define MSG_BUF_SIZE 1000
-static char msg_buf[MSG_BUF_SIZE];
-static const char* msg_type_text[3] = {"INFO", "WARNING", "ERROR"};
-static int msg_type_base_color[3] = {2, 3, 1};
+#define MSG_BUF_MAX 1000
+static char msg_buf[MSG_BUF_MAX];
+static const char* msg_type_text[4] = {"INFO", "WARNING", "ERROR", "DEBUG"};
+static int msg_type_base_color[4] = {2, 3, 1, 5};
 
 typedef enum {
   MSG_INFO = 0,
   MSG_WARNING = 1,
   MSG_ERROR = 2,
+  MSG_DEBUG = 3,
 } msg_type;
 
 static void print_msg(msg_type type, char *msg)
 {
+  msg_buf[MSG_BUF_MAX] = '\0'; // Ensure the last char is null.
   fprintf(stderr, "\033[1;3%dm[%7s]\033[0m %s\n", msg_type_base_color[type],
     msg_type_text[type], msg);
+}
+
+// PATTERN LOADER /////////////////////////////////////////////////////////////
+
+#define PATTERN_MAX 2000
+#define LINE_MAX 200
+static bool pattern[PATTERN_MAX];
+static int pattern_len = 0;
+
+static int load_pattern(const char *file_name) {
+  FILE *f = fopen(file_name, "r");
+  if (!f) {
+    snprintf(msg_buf, MSG_BUF_MAX, "Could not open '%s' for reading.", file_name);
+    print_msg(MSG_ERROR, msg_buf);
+    return EXIT_FAILURE;
+  }
+  char line[LINE_MAX];
+  char line_count = 0;
+  while (fgets(line, sizeof line, f)) {
+    if (line[0] == '#') {
+      continue; // Skip comments
+    }
+    char c;
+    int ci = 0;
+    while (c = line[ci++]) { // While not null at the end
+      if (c == '0' || c == '1') {
+        pattern[pattern_len++] = c - '0';
+      }
+    }
+    line_count++;
+  }
+  if (!feof(f)) {
+    snprintf(msg_buf, MSG_BUF_MAX, "Reading '%s' failed at line %d.", file_name, line_count);
+    print_msg(MSG_ERROR, msg_buf);
+    return EXIT_FAILURE;
+  }
+  if (fclose(f)) {
+    snprintf(msg_buf, MSG_BUF_MAX, "Could not close file '%s' after reading.", file_name);
+    print_msg(MSG_ERROR, msg_buf);
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+}
+
+static void print_pattern(int chars_per_line) {
+  int msg_buf_offset = 0;
+  for (int i = 0; i < pattern_len; i++) {
+    msg_buf_offset += sprintf(msg_buf + msg_buf_offset, "%d ", pattern[i]);
+    if (i % chars_per_line == chars_per_line - 1) {
+      msg_buf_offset = 0;
+      print_msg(MSG_DEBUG, msg_buf);
+    }
+  }
+  if (msg_buf > 0) {
+    print_msg(MSG_DEBUG, msg_buf);
+  }
 }
 
 // GENERATOR FUNCTIONS ////////////////////////////////////////////////////////
 
 static void initialize_mraa(void)
 {
-  snprintf(msg_buf, MSG_BUF_SIZE, "Using 'mraa' %s (%s detected).",
+  snprintf(msg_buf, MSG_BUF_MAX, "Using 'mraa' %s (%s detected).",
     mraa_get_version(), mraa_get_platform_name());
   print_msg(MSG_INFO, msg_buf);
   mraa_init();
@@ -52,8 +110,7 @@ static void configure_real_time(void)
   struct sched_param sp;
   sp.sched_priority = 30;
   if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp)) {
-    print_msg(MSG_WARNING, "[WARNING] Failed to set stepper thread "
-      "to real-time priority.");
+    print_msg(MSG_WARNING, "Failed to enable real-time priority.");
   }
 }
 
@@ -69,6 +126,7 @@ static void print_help(char *argv0) {
   fprintf(stderr, "  -r               Repeat pattern indefinitely. In case\n");
   fprintf(stderr, "                   it is not present, the pattern is sent\n");
   fprintf(stderr, "                   only once.\n");
+  fprintf(stderr, "  -d               Print debug information.\n");
   fprintf(stderr, "  -h               Print this help message.\n");
   // TODO: Output pin selection?
   fprintf(stderr, "\n");
@@ -79,6 +137,7 @@ static void print_help(char *argv0) {
 
 typedef struct config_t {
   bool repeat;
+  bool debug;
   char *file_name;
   int period; // [ns]
 } config_t;
@@ -87,13 +146,17 @@ static void parse_args(int argc, char *argv[], config_t *config)
 {
   config->period = 1000000000; // 10^9 [ns] = 1 [s]
   config->repeat = false;
+  config->debug = false;
   bool has_f = false, has_t = false;
   double f;
   int opt;
-  while ((opt = getopt(argc, argv, "hrf:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "hdrf:t:")) != -1) {
     switch (opt) {
     case 'r':
       config->repeat = true;
+      break;
+    case 'd':
+      config->debug = true;
       break;
     case 't':
       has_t = true;
@@ -133,13 +196,15 @@ static void parse_args(int argc, char *argv[], config_t *config)
   }
   config->file_name = argv[optind];
 
-  print_msg(MSG_INFO, "Using the following configuration:");
-  snprintf(msg_buf, MSG_BUF_SIZE, "  * repeat: %s", config->repeat ? "yes" : "no");
-  print_msg(MSG_INFO, msg_buf);
-  snprintf(msg_buf, MSG_BUF_SIZE, "  * period: %d [ns]", config->period);
-  print_msg(MSG_INFO, msg_buf);
-  snprintf(msg_buf, MSG_BUF_SIZE, "  * file name: %s", config->file_name);
-  print_msg(MSG_INFO, msg_buf);
+  if (config->debug) {
+    print_msg(MSG_DEBUG, "Using the following configuration:");
+    snprintf(msg_buf, MSG_BUF_MAX, "  * repeat: %s", config->repeat ? "yes" : "no");
+    print_msg(MSG_DEBUG, msg_buf);
+    snprintf(msg_buf, MSG_BUF_MAX, "  * period: %d [ns]", config->period);
+    print_msg(MSG_DEBUG, msg_buf);
+    snprintf(msg_buf, MSG_BUF_MAX, "  * file name: %s", config->file_name);
+    print_msg(MSG_DEBUG, msg_buf);
+  }
 }
 
 static void finalize(int _ignored)
@@ -156,7 +221,13 @@ static void initialize(int argc, char *argv[], struct timespec *ts, config_t *co
 {
   signal(SIGINT, finalize);
   parse_args(argc, argv, config);
-  // TODO: Load pattern
+  if (load_pattern(config->file_name)) {
+    exit(EXIT_FAILURE);
+  }
+  if (config->debug) {
+    print_pattern(30);
+  }
+  // TODO
   initialize_mraa();
   clock_gettime(CLOCK_MONOTONIC, ts);
 }
