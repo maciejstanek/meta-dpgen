@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include "mraa.h"
+#include "mraa/gpio.h"
 
 // MESSAGE PRINTER ////////////////////////////////////////////////////////////
 
@@ -166,6 +167,7 @@ static void parse_args(int argc, char *argv[], config_t *config)
     }
     config->period = (int)(1.0L/(f/1000000000.0L)); // 10^9
   }
+  print_msg(MSG_WARNING, "According to Intel, GPIO max speed is 230 [Hz].");
 
   if (optind >= argc) {
     print_msg(MSG_ERROR, "Expected argument after options.");
@@ -196,6 +198,12 @@ static void initialize_mraa(void)
   // TODO: add pins
 }
 
+static void cleanup_mraa(void)
+{
+  // TODO: add pins
+  mraa_deinit();
+}
+
 static void configure_real_time(void)
 {
   // Lock memory to ensure no swapping is done.
@@ -211,17 +219,17 @@ static void configure_real_time(void)
   }
 }
 
-static void finalize()
+static void finalize(int exit_code)
 {
   print_msg(MSG_INFO, "Exiting.");
-  mraa_deinit();
-  exit(EXIT_SUCCESS);
+  cleanup_mraa();
+  exit(exit_code);
 }
 
 static void sigint_response(int _ignored)
 {
   printf("\n"); // Add a new line so that "^C" is in a separate line.
-  finalize();
+  finalize(EXIT_SUCCESS);
 }
 
 static void initialize(int argc, char *argv[], struct timespec *ts, config_t *config)
@@ -248,7 +256,7 @@ static void sleep_until(struct timespec *ts, int delay)
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ts, NULL);
 }
 
-#define MINIMAL_PERIOD_FOR_LOGGING 50000000 // 50 [ms]
+#define MINIMAL_PERIOD_FOR_LOGGING 100000000 // 100 [ms]
 bool printed_minimal_period_warning = false;
 
 static void log_action(config_t *config, bool value)
@@ -262,8 +270,8 @@ static void log_action(config_t *config, bool value)
   }
   else {
     if (!printed_minimal_period_warning) {
-      print_msg(MSG_DEBUG, "The requested frequency is too high to enable"
-        " actions logging. It can be 20 [Hz] max.");
+      print_msg(MSG_DEBUG, "The requested frequency is too high to enable safe"
+        " actions logging. It can be 10 [Hz] max.");
       printed_minimal_period_warning = true;
     }
   }
@@ -286,7 +294,7 @@ static void update_output(struct timespec *ts, config_t *config, int *index)
       }
     }
     else {
-      finalize();
+      finalize(EXIT_SUCCESS);
     }
   }
 }
