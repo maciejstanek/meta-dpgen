@@ -15,8 +15,8 @@ on `thud` branch.
 
 Moreover, `meta-intel` layer is required to provide a support for Intel Galileo
 (`intel-quark`). For development only, one can use `qemux86` to speed things up
-in case no dev board is accessible at the moment - [Intel Quark][1] is a variant of x86
-anyway.
+in case no dev board is accessible at the moment - [Intel Quark][1] is
+a variant of x86 anyway.
 
 Prerequisites
 -------------
@@ -55,8 +55,9 @@ bitbake core-image-rt
 Troubleshooting
 ---------------
 
-In case something breaks in the build process, there are a few options to consider.
-Firstly, one can build it without Intel Quark meta and debug it with an emulator.
+In case something breaks in the build process, there are a few options to
+consider. Firstly, one can build it without Intel Quark meta and debug it with
+an emulator.
 ```
 echo 'MACHINE = "qemux86"' >> conf/layer.conf
 echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/layer.conf
@@ -71,12 +72,18 @@ bitbake-layers remove-layer ../meta-dpgen
 bitbake core-image-rt
 ```
 
-The recommended development enviroment consists of two TTYs. The first one is used for building and emulating.
+If everything else fails, one can rebuild the whole project. To save the time
+spent on downloading Yocto modules, a `bitbake` cleanup command can be used.
+```
+bitbake -c cleansstate world
+```
+
+The recommended development enviroment consists of two TTYs. The first one is
+used for building and emulating.
 ```
 . oe-init-build-env build
 bitbake dpgen && bitbake core-image-rt && runqemu qemux86
 ```
-
-The second one is used for developing the *C* app.
+The second one is used for developing the C app.
 
 [1]: https://en.wikipedia.org/wiki/Intel_Quark
