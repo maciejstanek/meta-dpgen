@@ -95,7 +95,7 @@ The generator has a feature of generating a synchronization clock which toggles 
 dpgen -f 100 -s 3 /usr/share/dpgen/pattern/arecibo
 ```
 
-**Note:** ![according to Intel][2], the maximum output frequency of GPIO pins is 230 Hz.
+**Note:** _[according to Intel][2], the maximum output frequency of GPIO pins is 230 Hz._
 
 Directory `/usr/share/dpgen/pattern` contains some example sequence. The pattern files contain a sequence of `0` and `1` symbols; all other characters are ignored. Moreover, if a line starts with a pound, it is discarded entirely.
 
