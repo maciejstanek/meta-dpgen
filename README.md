@@ -80,6 +80,7 @@ consider. Firstly, one can build it without Intel Quark meta and debug it with
 an emulator.
 ```
 echo 'MACHINE = "qemux86"' >> conf/layer.conf
+echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"' >> conf/layer.conf
 echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/layer.conf
 bitbake-layers remove-layer ../meta-intel
 bitbake core-image-rt
