@@ -70,7 +70,40 @@ connect via UART.
 Generator Usage
 ---------------
 
-**TODO**
+Boot up the machine and log in as _root_; no password required. Next, make sure `dpgen` is installed by typing a help request.
+```
+dpgen -h
+```
+
+Next, connect a logic analyzer to a default pin _D2_ and playback an example sequence at the default frequency of 1 Hz. Note, that the generator will exit after finishing the playback.
+```
+dpgen /usr/share/dpgen/pattern/barker13
+```
+
+The following command outputs a pattern at the rate of 30 Hz to an output pin _D4_.
+```
+dpgen -f 30 -o 4 /usr/share/dpgen/pattern/pi
+```
+
+The generator can play the requested sequence in a loop. This comes in handy in case of the following example of a square wave.
+```
+dpgen -f 100 /usr/share/dpgen/pattern/square
+```
+
+The generator has a feature of generating a synchronization clock which toggles every time the pattern loops. This is can be utilized as a trigger for a connected oscilloscope. The clock is disabled by default.
+```
+dpgen -f 100 -s 3 /usr/share/dpgen/pattern/arecibo
+```
+
+**Note:** ![according to Intel][2], the maximum output frequency of GPIO pins is 230 Hz.
+
+Directory `/usr/share/dpgen/pattern` contains some example sequence. The pattern files contain a sequence of `0` and `1` symbols; all other characters are ignored. Moreover, if a line starts with a pound, it is discarded entirely.
+
+The following example generates a 25% PWM signal.
+```
+echo '1 0 0 0' > pwm_25p.dp
+dpgen -r f 100 pwm_25p.dp
+```
 
 Troubleshooting
 ---------------
@@ -108,3 +141,4 @@ bitbake dpgen && bitbake core-image-rt && runqemu qemux86
 The second one is used for developing the C app.
 
 [1]: https://en.wikipedia.org/wiki/Intel_Quark
+[2]: https://www.intel.com/content/www/us/en/support/articles/000006153/boards-and-kits/intel-galileo-boards.html
