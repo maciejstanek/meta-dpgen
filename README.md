@@ -37,7 +37,8 @@ git clone git@github.com:maciejstanek/meta-dpgen.git
 ```
 
 Next, prepare the build configuration. This includes adding all the necessary
-layers and modifying a config file appropriately.
+layers and modifying a config file appropriately. This will take a few hours to
+build.
 ```
 . oe-init-build-env build
 echo 'MACHINE = "intel-quark"' >> conf/layer.conf
@@ -50,7 +51,26 @@ bitbake-layers show-layers
 bitbake core-image-rt
 ```
 
-**TODO**: Describe SD card image generation and processing.
+Next, generate an SD card image.
+```
+wic create galileodisk-sd -e core-image-rt
+```
+
+Finally, burn the generated `.direct` file onto the SD card. Note, that the
+output device might be different in your case; you can use either
+`sudo fdisk -l` or `dmesg` to check it. Moreover, the card should be formatted
+to FAT32.
+```
+sudo dd if=`ls galileodisk-sd-*-mmcblk0.direct | head -n 1` of=/dev/mmcblk0 bs=3M conv=fsync
+```
+
+Congratulations, you are done. Insert the SD card to Galileo, power it up and
+connect via UART.
+
+Generator Usage
+---------------
+
+**TODO**
 
 Troubleshooting
 ---------------
