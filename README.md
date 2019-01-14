@@ -41,9 +41,9 @@ layers and modifying a config file appropriately. This will take a few hours to
 build.
 ```
 . oe-init-build-env build
-echo 'MACHINE = "intel-quark"' >> conf/layer.conf
-echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-intel-rt"' >> conf/layer.conf
-echo 'COMPATIBLE_MACHINE_intel-quark = "intel-quark"' >> conf/layer.conf
+echo 'MACHINE = "intel-quark"' >> conf/local.conf
+echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-intel-rt"' >> conf/local.conf
+echo 'COMPATIBLE_MACHINE_intel-quark = "intel-quark"' >> conf/local.conf
 bitbake-layers add-layer ../meta-openembedded/meta-oe
 bitbake-layers add-layer ../meta-intel
 bitbake-layers add-layer ../meta-dpgen
@@ -112,9 +112,9 @@ In case something breaks in the build process, there are a few options to
 consider. Firstly, one can build it without Intel Quark meta and debug it with
 an emulator.
 ```
-echo 'MACHINE = "qemux86"' >> conf/layer.conf
-echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"' >> conf/layer.conf
-echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/layer.conf
+echo 'MACHINE = "qemux86"' >> conf/local.conf
+echo 'PREFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"' >> conf/local.conf
+echo 'COMPATIBLE_MACHINE_quemux86 = "qemux86"' >> conf/local.conf
 bitbake-layers remove-layer ../meta-intel
 bitbake core-image-rt
 runqemu qemux86
